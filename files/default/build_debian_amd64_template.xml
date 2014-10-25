@@ -45,7 +45,7 @@
         <hudson.model.StringParameterDefinition>
           <name>DEBOOTSTRAP_ARGUMENTS</name>
           <description>debootstrap arguments</description>
-          <defaultValue>--variant=minbase</defaultValue>
+          <defaultValue>--variant=minbase --arch=amd64</defaultValue>
         </hudson.model.StringParameterDefinition>
         <hudson.model.StringParameterDefinition>
           <name>PACKAGES</name>

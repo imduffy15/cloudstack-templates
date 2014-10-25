@@ -30,27 +30,27 @@
         <hudson.model.StringParameterDefinition>
           <name>HOSTNAME</name>
           <description>Hostname of the machine</description>
-          <defaultValue>debian.cloudstack.org</defaultValue>
+          <defaultValue>ubuntu.cloudstack.org</defaultValue>
         </hudson.model.StringParameterDefinition>
         <hudson.model.StringParameterDefinition>
           <name>MIRROR</name>
           <description>Mirror to use for apt</description>
-          <defaultValue>http://localhost:3124/ftp.debian.org/debian/</defaultValue>
+          <defaultValue>http://localhost:3124/ftp.heanet.ie/mirrors/ubuntu/</defaultValue>
         </hudson.model.StringParameterDefinition>
         <hudson.model.StringParameterDefinition>
           <name>RELEASE</name>
-          <description>Version of debian</description>
-          <defaultValue>wheezy</defaultValue>
+          <description>Version of ubuntu</description>
+          <defaultValue>trusty</defaultValue>
         </hudson.model.StringParameterDefinition>
         <hudson.model.StringParameterDefinition>
           <name>DEBOOTSTRAP_ARGUMENTS</name>
           <description>debootstrap arguments</description>
-          <defaultValue>--variant=minbase</defaultValue>
+          <defaultValue>--include=ubuntu-minimal --components=main,universe</defaultValue>
         </hudson.model.StringParameterDefinition>
         <hudson.model.StringParameterDefinition>
           <name>PACKAGES</name>
           <description>Packages to install</description>
-          <defaultValue>linux-image-amd64 grub-pc</defaultValue>
+          <defaultValue>linux-image-generic grub-pc</defaultValue>
         </hudson.model.StringParameterDefinition>
       </parameterDefinitions>
     </hudson.model.ParametersDefinitionProperty>

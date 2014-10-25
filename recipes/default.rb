@@ -55,7 +55,7 @@ cookbook_file 'libvhd.so.1.0' do
   mode '755'
 end
 
-jobs = %w(build_debian_amd64_template build_debian_x86_template build_ubuntu_amd64_template build_ubuntu_x86_template build_centos_amd64_template build_centos_x86_template)
+jobs = %w(build_debian_amd64_template build_ubuntu_amd64_template build_centos_amd64_template)
 
 jobs.each do |job|
   cookbook_file "#{job}.xml" do

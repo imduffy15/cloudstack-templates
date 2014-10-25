@@ -29,7 +29,7 @@ RELEASE=${5}
 shift 5
 DEBOOTSTRAP_ARGUMENTS=${@}
 
-echo "Installing $RELEASE into $FILE..."
+echo "Installing $RELEASE into ${VIRTUAL_DISK}..."
 
 MNT_DIR=`tempfile`
 rm ${MNT_DIR}
@@ -51,10 +51,10 @@ done
 
 [ "$DISK" == "" ] && fail "no nbd device available"
 
-echo "Connected $FILE to $DISK"
+echo "Connected ${VIRTUAL_DISK} to $DISK"
 
 echo "Partitioning $DISK..."
-sfdisk ${DISK} -q -D -uM << EOF || fail "cannot partition $FILE"
+sfdisk ${DISK} -q -D -uM << EOF || fail "cannot partition ${VIRTUAL_DISK}"
 ,200,83,*
 ;
 EOF
@@ -135,7 +135,10 @@ rm -f ${MNT_DIR}/etc/udev/rules.d/70-persistent-net.rules
 mkdir ${MNT_DIR}/etc/udev/rules.d/70-persistent-net.rules
 rm -f ${MNT_DIR}/lib/udev/rules.d/75-persistent-net-generator.rules
 
-sed -i 's/^#T0/T0/' ${MNT_DIR}/etc/inittab
+if [ -f ${MNT_DIR}/etc/inittab ];
+then
+   sed -i 's/^#T0/T0/' ${MNT_DIR}/etc/inittab
+fi
 
 cat >> ${MNT_DIR}/etc/inittab << EOF
 vc:2345:respawn:/sbin/getty 38400 hvc0
