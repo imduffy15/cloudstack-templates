@@ -1,0 +1,88 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<project>
+  <actions/>
+  <description>Outputs a CentOS Template in:&#xd;
+&#xd;
+ - qcow2&#xd;
+ - vmdk&#xd;
+ - hyperv vhd&#xd;
+ - xen vhd</description>
+  <logRotator class="hudson.tasks.LogRotator">
+    <daysToKeep>5</daysToKeep>
+    <numToKeep>3</numToKeep>
+    <artifactDaysToKeep>-1</artifactDaysToKeep>
+    <artifactNumToKeep>-1</artifactNumToKeep>
+  </logRotator>
+  <keepDependencies>false</keepDependencies>
+  <properties>
+    <hudson.model.ParametersDefinitionProperty>
+      <parameterDefinitions>
+        <hudson.model.StringParameterDefinition>
+          <name>DISK_SIZE</name>
+          <description>Size of disk on created image</description>
+          <defaultValue>10G</defaultValue>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>ROOT_PASSWORD</name>
+          <description>Root password of the OS</description>
+          <defaultValue>password</defaultValue>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>HOSTNAME</name>
+          <description>Hostname of the machine</description>
+          <defaultValue>debian.cloudstack.org</defaultValue>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>MIRROR</name>
+          <description>Mirror to use for apt</description>
+          <defaultValue>http://localhost:3124/ftp.debian.org/debian/</defaultValue>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>RELEASE</name>
+          <description>Version of debian</description>
+          <defaultValue>wheezy</defaultValue>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>DEBOOTSTRAP_ARGUMENTS</name>
+          <description>debootstrap arguments</description>
+          <defaultValue>--variant=minbase</defaultValue>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>PACKAGES</name>
+          <description>Packages to install</description>
+          <defaultValue>linux-image-amd64 grub-pc openssh-server</defaultValue>
+        </hudson.model.StringParameterDefinition>
+      </parameterDefinitions>
+    </hudson.model.ParametersDefinitionProperty>
+  </properties>
+  <scm class="hudson.scm.NullSCM"/>
+  <canRoam>true</canRoam>
+  <disabled>false</disabled>
+  <blockBuildWhenDownstreamBuilding>false</blockBuildWhenDownstreamBuilding>
+  <blockBuildWhenUpstreamBuilding>false</blockBuildWhenUpstreamBuilding>
+  <triggers/>
+  <concurrentBuild>false</concurrentBuild>
+  <builders>
+    <hudson.tasks.Shell>
+      <command>export PATH=/opt/mkimg:/sbin:/usr/sbin:$PATH
+
+if [ -d dist ]; then
+    rm -fr dist/
+fi
+mkdir dist
+
+sudo mkimg &quot;dist&quot; &quot;${HOSTNAME}&quot; &quot;${ROOT_PASSWORD}&quot; &quot;${DISK_SIZE}&quot; &quot;${PACKAGES}&quot; &quot;debootstrap&quot; &quot;${RELEASE}&quot; &quot;${MIRROR}&quot; &quot;${DEBOOTSTRAP_ARGUMENTS}&quot;
+</command>
+    </hudson.tasks.Shell>
+  </builders>
+  <publishers>
+    <hudson.tasks.ArtifactArchiver>
+      <artifacts>dist/*</artifacts>
+      <allowEmptyArchive>false</allowEmptyArchive>
+      <onlyIfSuccessful>true</onlyIfSuccessful>
+      <fingerprint>false</fingerprint>
+      <defaultExcludes>true</defaultExcludes>
+    </hudson.tasks.ArtifactArchiver>
+  </publishers>
+  <buildWrappers/>
+</project>
