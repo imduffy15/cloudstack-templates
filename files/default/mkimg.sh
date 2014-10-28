@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -e
+set -x
 
 mkimg="$(basename "$0")"
 
@@ -51,24 +51,26 @@ TIMESTAMP=$(date +"%s")
 
 cd ${OUTPUT_DIRECTORY}
 
+RELEASE=`echo ${HOSTNAME} | awk -F'.' '{print $1}'`
+
 # Create KVM Image
-qemu-img convert -o compat=0.10 -c -f raw ${VIRTUAL_DISK} -O qcow2 debian-kvm-${TIMESTAMP}.qcow2
-bzip2 debian-kvm-${TIMESTAMP}.qcow2
+qemu-img convert -o compat=0.10 -c -f raw ${VIRTUAL_DISK} -O qcow2 "${RELEASE}-kvm-${TIMESTAMP}.qcow2"
+bzip2 "${RELEASE}-kvm-${TIMESTAMP}.qcow2"
 
 # Create VMware Image
-qemu-img convert -f raw ${VIRTUAL_DISK} -O vmdk debian-vmware-${TIMESTAMP}.vmdk
-bzip2 debian-vmware-${TIMESTAMP}.vmdk
+qemu-img convert -f raw ${VIRTUAL_DISK} -O vmdk "${RELEASE}-vmware-${TIMESTAMP}.vmdk"
+bzip2 "${RELEASE}-vmware-${TIMESTAMP}.vmdk"
 
 # Create HyperV Image
-qemu-img convert -f raw ${VIRTUAL_DISK} -O vpc debian-hyperv-${TIMESTAMP}.vhd
-zip debian-hyperv.vhd-${TIMESTAMP}.zip debian-hyperv-${TIMESTAMP}.vhd
-rm debian-hyperv-${TIMESTAMP}.vhd
+qemu-img convert -f raw ${VIRTUAL_DISK} -O vpc "${RELEASE}-hyperv-${TIMESTAMP}.vhd"
+zip "${RELEASE}-hyperv.vhd-${TIMESTAMP}.zip" "${RELEASE}-hyperv-${TIMESTAMP}.vhd"
+rm "${RELEASE}-hyperv-${TIMESTAMP}.vhd"
 
 # Create XenServer image
-vhd-util convert -s 0 -t 1 -i ${VIRTUAL_DISK} -o stagefixed-${TIMESTAMP}.vhd
-faketime '2010-01-01' vhd-util convert -s 1 -t 2 -i stagefixed-${TIMESTAMP}.vhd -o debian-xen-${TIMESTAMP}.vhd
+vhd-util convert -s 0 -t 1 -i ${VIRTUAL_DISK} -o "stagefixed-${TIMESTAMP}.vhd"
+faketime '2010-01-01' vhd-util convert -s 1 -t 2 -i "stagefixed-${TIMESTAMP}.vhd" -o "${RELEASE}-xen-${TIMESTAMP}.vhd"
 rm *.bak
-bzip2 debian-xen-${TIMESTAMP}.vhd
+bzip2 "${RELEASE}-xen-${TIMESTAMP}.vhd"
 
 # Delete the raw virtual disk
 rm -rf ${VIRTUAL_DISK}

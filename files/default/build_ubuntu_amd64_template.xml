@@ -50,7 +50,7 @@
         <hudson.model.StringParameterDefinition>
           <name>PACKAGES</name>
           <description>Packages to install</description>
-          <defaultValue>linux-image-generic grub-pc</defaultValue>
+          <defaultValue>linux-image-generic openssh-server sudo curl wget rsync cloud-init cloud-utils cloud-initramfs-growroot</defaultValue>
         </hudson.model.StringParameterDefinition>
       </parameterDefinitions>
     </hudson.model.ParametersDefinitionProperty>

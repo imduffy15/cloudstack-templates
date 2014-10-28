@@ -1,11 +1,10 @@
-<?xml version='1.0' encoding='UTF-8'?>
-<project>
+<?xml version="1.0" encoding="UTF-8"?><project>
   <actions/>
-  <description>Outputs a CentOS Template in:&#xd;
-&#xd;
- - qcow2&#xd;
- - vmdk&#xd;
- - hyperv vhd&#xd;
+  <description>Outputs a CentOS Template in:&#13;
+&#13;
+ - qcow2&#13;
+ - vmdk&#13;
+ - hyperv vhd&#13;
  - xen vhd</description>
   <logRotator class="hudson.tasks.LogRotator">
     <daysToKeep>5</daysToKeep>
@@ -30,27 +29,17 @@
         <hudson.model.StringParameterDefinition>
           <name>HOSTNAME</name>
           <description>Hostname of the machine</description>
-          <defaultValue>debian.cloudstack.org</defaultValue>
+          <defaultValue>centos.cloudstack.org</defaultValue>
         </hudson.model.StringParameterDefinition>
         <hudson.model.StringParameterDefinition>
-          <name>MIRROR</name>
-          <description>Mirror to use for apt</description>
-          <defaultValue>http://localhost:3124/ftp.debian.org/debian/</defaultValue>
-        </hudson.model.StringParameterDefinition>
-        <hudson.model.StringParameterDefinition>
-          <name>RELEASE</name>
-          <description>Version of debian</description>
-          <defaultValue>wheezy</defaultValue>
-        </hudson.model.StringParameterDefinition>
-        <hudson.model.StringParameterDefinition>
-          <name>DEBOOTSTRAP_ARGUMENTS</name>
-          <description>debootstrap arguments</description>
-          <defaultValue>--variant=minbase</defaultValue>
+          <name>RINSE_ARGUMENTS</name>
+          <description>Rinse Arguments</description>
+          <defaultValue>--arch amd64 --distribution centos-6</defaultValue>
         </hudson.model.StringParameterDefinition>
         <hudson.model.StringParameterDefinition>
           <name>PACKAGES</name>
           <description>Packages to install</description>
-          <defaultValue>linux-image-amd64 grub-pc openssh-server</defaultValue>
+          <defaultValue>kernel syslinux-extlinux sudo rootfiles openssh-server</defaultValue>
         </hudson.model.StringParameterDefinition>
       </parameterDefinitions>
     </hudson.model.ParametersDefinitionProperty>
@@ -71,7 +60,7 @@ if [ -d dist ]; then
 fi
 mkdir dist
 
-sudo mkimg &quot;dist&quot; &quot;${HOSTNAME}&quot; &quot;${ROOT_PASSWORD}&quot; &quot;${DISK_SIZE}&quot; &quot;${PACKAGES}&quot; &quot;debootstrap&quot; &quot;${RELEASE}&quot; &quot;${MIRROR}&quot; &quot;${DEBOOTSTRAP_ARGUMENTS}&quot;
+sudo mkimg "dist" "${HOSTNAME}" "${ROOT_PASSWORD}" "${DISK_SIZE}" "${PACKAGES}" "rinse" "${RINSE_ARGUMENTS}"
 </command>
     </hudson.tasks.Shell>
   </builders>

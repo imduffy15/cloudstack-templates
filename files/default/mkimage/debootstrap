@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -e
+set -x
 
 VSYSTEM=qemu
 
@@ -68,6 +68,9 @@ mkfs.ext4 -q ${DISK}p2 || fail "cannot create / ext4"
 echo "Mounting root partition..."
 mount ${DISK}p2 ${MNT_DIR} || fail "cannot mount /"
 
+parted -s ${VIRTUAL_DISK} set 1 boot on
+install-mbr ${VIRTUAL_DISK}
+
 echo "Installing $RELEASE..."
 debootstrap "${RELEASE}" "${MNT_DIR}" "${DEBOOTSTRAP_ARGUMENTS}" || fail "cannot install $RELEASE into $DISK"
 
@@ -102,14 +105,6 @@ iface lo inet loopback
 auto eth0
 iface eth0 inet dhcp
 
-# Maybe the VM has 2 NICs?
-allow-hotplug eth1
-iface eth1 inet dhcp
-
-# Maybe the VM has 3 NICs?
-allow-hotplug eth2
-iface eth2 inet dhcp
-
 pre-up sleep 5
 EOF
 
@@ -121,12 +116,61 @@ chroot ${MNT_DIR} mount -t sysfs none /sys || fail "cannot mount /sys"
 chroot ${MNT_DIR} sh -c "apt-get update"
 chroot ${MNT_DIR} sh -c "apt-get -y upgrade"
 
+LANG=C DEBIAN_FRONTEND=noninteractive chroot ${MNT_DIR} apt-get install -y --force-yes -q lsb-release locales || fail "cannot lsb-release"
+
+OPERATING_SYSTEM=`chroot ${MNT_DIR} sh -c "lsb_release -is"`
+
+if [ "${OPERATING_SYSTEM}" == "Debian" ] ; then
+  echo "deb http://localhost:3124/ftp.debian.org/debian ${RELEASE}-updates main" >> ${MNT_DIR}/etc/apt/sources.list
+  echo "deb http://localhost:3124/security.debian.org/ ${RELEASE}/updates main" >> ${MNT_DIR}/etc/apt/sources.list
+  echo "deb http://localhost:3124/ftp.debian.org/debian ${RELEASE}-backports main" >> ${MNT_DIR}/etc/apt/sources.list
+fi
+
+if [ "${OPERATING_SYSTEM}" == "Ubuntu" ] ; then
+  echo "deb http://localhost:3124/eu.archive.ubuntu.com/ubuntu/ ${RELEASE} main restricted" >> ${MNT_DIR}/etc/apt/sources.list
+  echo "deb http://localhost:3124/eu.archive.ubuntu.com/ubuntu/ ${RELEASE}-updates main restricted" >> ${MNT_DIR}/etc/apt/sources.list
+  echo "deb http://localhost:3124/eu.archive.ubuntu.com/ubuntu/ ${RELEASE} universe" >> ${MNT_DIR}/etc/apt/sources.list
+  echo "deb http://localhost:3124/eu.archive.ubuntu.com/ubuntu/ ${RELEASE}-updates universe" >> ${MNT_DIR}/etc/apt/sources.list
+  echo "deb http://localhost:3124/eu.archive.ubuntu.com/ubuntu/ ${RELEASE} multiverse" >> ${MNT_DIR}/etc/apt/sources.list
+  echo "deb http://localhost:3124/eu.archive.ubuntu.com/ubuntu/ ${RELEASE}-updates multiverse" >> ${MNT_DIR}/etc/apt/sources.list
+  echo "deb http://localhost:3124/eu.archive.ubuntu.com/ubuntu/ ${RELEASE}-backports main restricted universe multiverse" >> ${MNT_DIR}/etc/apt/sources.list
+  echo "deb http://localhost:3124/security.ubuntu.com/ubuntu ${RELEASE}-security main restricted" >> ${MNT_DIR}/etc/apt/sources.list
+  echo "deb http://localhost:3124/security.ubuntu.com/ubuntu ${RELEASE}-security universe" >> ${MNT_DIR}/etc/apt/sources.list
+  echo "deb http://localhost:3124/security.ubuntu.com/ubuntu ${RELEASE}-security multiverse" >> ${MNT_DIR}/etc/apt/sources.list
+  cp ${MNT_DIR}/etc/apt/sources.list ${MNT_DIR}/etc/apt/sources.list.d/precise.list
+  sed -i "s|${RELEASE}|precise|g" ${MNT_DIR}/etc/apt/sources.list.d/precise.list
+fi
+
+chroot ${MNT_DIR} sh -c "apt-get update"
+chroot ${MNT_DIR} sh -c "apt-get -y upgrade"
+
+if [ "${OPERATING_SYSTEM}" == "Ubuntu" ] ; then
+LANG=C DEBIAN_FRONTEND=noninteractive chroot ${MNT_DIR} apt-get install -y --force-yes -q grub2-common/precise
+LANG=C DEBIAN_FRONTEND=noninteractive chroot ${MNT_DIR} apt-get install -y --force-yes -q grub-pc/precise
+fi
+
 LANG=C DEBIAN_FRONTEND=noninteractive chroot ${MNT_DIR} apt-get install -y --force-yes -q ${PACKAGES} || fail "cannot install ${PACKAGES}"
+
 chroot ${MNT_DIR} grub-install ${DISK} || fail "cannot install grub"
 chroot ${MNT_DIR} update-grub || fail "cannot update grub"
 
-sed -i "s|${DISK}p1|UUID=${sda1_uuid}|g" ${MNT_DIR}/boot/grub/grub.cfg
-sed -i "s|${DISK}p2|UUID=${sda2_uuid}|g" ${MNT_DIR}/boot/grub/grub.cfg
+ sed -i "s|${DISK}p1|UUID=${sda1_uuid} console=tty0 console=ttyS0\,115200n8 console=hvc0|g" ${MNT_DIR}/boot/grub/grub.cfg
+ sed -i "s|${DISK}p2|UUID=${sda2_uuid} console=tty0 console=ttyS0\,115200n8 console=hvc0|g" ${MNT_DIR}/boot/grub/grub.cfg
+ sed -i "/set root/d" ${MNT_DIR}/boot/grub/grub.cfg
+ sed -i "s|linux\t|set root=(hd0,1)\n\tlinux\t|g" ${MNT_DIR}/boot/grub/grub.cfg
+
+rm -rf ${MNT_DIR}/etc/cloud
+cp -r /opt/mkimg/mkimage/cloud-init-conf/${OPERATING_SYSTEM}/cloud ${MNT_DIR}/etc/cloud
+chmod 755 -R ${MNT_DIR}/etc/cloud
+
+cp /opt/mkimg/mkimage/cloud-init-conf/${OPERATING_SYSTEM}/cloud-set-guest-password ${MNT_DIR}/etc/init.d/
+cp /opt/mkimg/mkimage/cloud-init-conf/${OPERATING_SYSTEM}/cloud-set-guest-sshkey ${MNT_DIR}/etc/init.d/
+
+chmod +x ${MNT_DIR}/etc/init.d/cloud-set-guest-password
+chmod +x ${MNT_DIR}/etc/init.d/cloud-set-guest-sshkey
+
+chroot ${MNT_DIR} sh -c "update-rc.d cloud-set-guest-password defaults"
+chroot ${MNT_DIR} sh -c "update-rc.d cloud-set-guest-sshkey defaults"
 
 chroot ${MNT_DIR} sh -c "echo root:${ROOT_PASSWORD} | chpasswd"
 
@@ -135,26 +179,61 @@ rm -f ${MNT_DIR}/etc/udev/rules.d/70-persistent-net.rules
 mkdir ${MNT_DIR}/etc/udev/rules.d/70-persistent-net.rules
 rm -f ${MNT_DIR}/lib/udev/rules.d/75-persistent-net-generator.rules
 
-if [ -f ${MNT_DIR}/etc/inittab ];
-then
+if [ "${OPERATING_SYSTEM}" == "Debian" ] ; then
    sed -i 's/^#T0/T0/' ${MNT_DIR}/etc/inittab
+   echo "vc:2345:respawn:/sbin/getty 38400 hvc0" >> ${MNT_DIR}/etc/inittab
+   cp /opt/mkimg/mkimage/cloud-init-conf/${OPERATING_SYSTEM}/cloud-firstboot ${MNT_DIR}/etc/init.d/
+   chmod +x ${MNT_DIR}/etc/init.d/cloud-firstboot
+   chroot ${MNT_DIR} sh -c "update-rc.d cloud-firstboot defaults"
 fi
 
-cat >> ${MNT_DIR}/etc/inittab << EOF
-vc:2345:respawn:/sbin/getty 38400 hvc0
-EOF
+if [ "${OPERATING_SYSTEM}" == "Ubuntu" ] ; then
+   echo "# hvc0 - getty
+#
+# This service maintains a getty on hvc0 from the point the system is
+# started until it is shut down again.
+  
+start on stopped rc RUNLEVEL=[2345]
+stop on runlevel [!2345]
+  
+respawn
+exec /sbin/getty -8 38400 hvc0" > ${MNT_DIR}/etc/init/hvc0.conf
+
+   echo "# ttyS0 - getty
+#
+# This service maintains a getty on ttyS0 from the point the system is
+# started until it is shut down again.
+
+start on stopped rc or RUNLEVEL=[2345]
+stop on runlevel [!2345]
+
+respawn
+exec /sbin/getty -L 115200 ttyS0 vt102" > ${MNT_DIR}/etc/init/ttyS0.conf
+fi
+
+echo "LANG=en_US.UTF-8" > ${MNT_DIR}/etc/environment
+
+chroot ${MNT_DIR} sh -c 'export LANGUAGE=en_US.UTF-8; export LANG=en_US.UTF-8; export LC_ALL=en_US.UTF-8; locale-gen en_US.UTF-8'
+chroot ${MNT_DIR} sh -c 'export LANGUAGE=en_US.UTF-8; export LANG=en_US.UTF-8; export LC_ALL=en_US.UTF-8; update-locale en_US.UTF-8'
+chroot ${MNT_DIR} sh -c 'export LANGUAGE=en_US.UTF-8; export LANG=en_US.UTF-8; export LC_ALL=en_US.UTF-8; dpkg-reconfigure locales'
+
+rm -rf ${MNT_DIR}/etc/profile.d/Z99-cloud-locale-test.sh
+
+sed -i -e 's|AcceptEnv LANG LC_*|# AcceptEnv LANG LC_*|g' ${MNT_DIR}/etc/ssh/sshd_config
+sed -i -e 's|PermitRootLogin without-password|PermitRootLogin yes|g' ${MNT_DIR}/etc/ssh/sshd_config
+find ${MNT_DIR}/etc/apt/ -type f -print0 | xargs -0 sed -i -e 's|localhost:3124/||g'
 
 echo "Finishing grub installation..."
 grub-install ${DISK} --root-directory=${MNT_DIR} --modules="biosdisk part_msdos" || fail "cannot reinstall grub"
 
-chroot ${MNT_DIR} sh -c "apt-get -y --purge autoremove"
+chroot ${MNT_DIR} sh -c "apt-get -y autoremove"
 chroot ${MNT_DIR} sh -c "apt-get -y clean"
 chroot ${MNT_DIR} sh -c "find /var/cache -type f -delete -print"
 chroot ${MNT_DIR} sh -c "dd if=/dev/zero of=/EMPTY bs=1M || true"
 chroot ${MNT_DIR} sh -c "rm -f /EMPTY"
 chroot ${MNT_DIR} sh -c "sync;sync;sync"
 chroot ${MNT_DIR} sh -c "unset HISTFILE"
-
+sync;sync;sync
 echo "SUCCESS!"
 cleanup
 exit 0

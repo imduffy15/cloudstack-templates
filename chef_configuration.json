@@ -1,5 +1,6 @@
 {
     "run_list": [
         "recipe[template-builder]"
-    ]
+    ],
+    "set_fqdn": "jenkins.cloudstack.ianduffy.ie"
 }

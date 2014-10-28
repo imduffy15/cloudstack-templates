@@ -8,9 +8,11 @@ version '0.1.0'
 
 depends 'build-essential'
 depends 'jenkins'
+depends 'hostname'
 depends 'apt'
 depends 'sudo'
 depends 'git'
+depends 'nginx-proxy'
 
 supports 'debian'
 supports 'ubuntu'

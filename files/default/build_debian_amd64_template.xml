@@ -50,7 +50,7 @@
         <hudson.model.StringParameterDefinition>
           <name>PACKAGES</name>
           <description>Packages to install</description>
-          <defaultValue>linux-image-amd64 grub-pc openssh-server</defaultValue>
+          <defaultValue>linux-image-amd64 grub-pc openssh-server sudo curl wget rsync cloud-init cloud-utils cloud-initramfs-growroot</defaultValue>
         </hudson.model.StringParameterDefinition>
       </parameterDefinitions>
     </hudson.model.ParametersDefinitionProperty>
@@ -72,6 +72,8 @@ fi
 mkdir dist
 
 sudo mkimg &quot;dist&quot; &quot;${HOSTNAME}&quot; &quot;${ROOT_PASSWORD}&quot; &quot;${DISK_SIZE}&quot; &quot;${PACKAGES}&quot; &quot;debootstrap&quot; &quot;${RELEASE}&quot; &quot;${MIRROR}&quot; &quot;${DEBOOTSTRAP_ARGUMENTS}&quot;
+
+sudo chmod 755 -R dist
 </command>
     </hudson.tasks.Shell>
   </builders>

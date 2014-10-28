@@ -1,0 +1,136 @@
+#!/usr/bin/env bash
+set -e
+
+VSYSTEM=qemu
+
+cleanup() {
+        [ "${MNT_DIR}" != "" ] && chroot ${MNT_DIR} umount /proc/ /sys/ /dev/ /boot/
+        sleep 1s
+        [ "${MNT_DIR}" != "" ] && umount ${MNT_DIR}
+        sleep 1s
+        [ "$DISK" != "" ] && ${VSYSTEM}-nbd -d ${DISK}
+        sleep 1s
+        [ "${MNT_DIR}" != "" ] && rm -r ${MNT_DIR}
+}
+
+fail() {
+        cleanup
+        echo ""
+        echo "FAILED: $1"
+        exit 1
+}
+
+
+HOSTNAME=${1}
+ROOT_PASSWORD=${2}
+VIRTUAL_DISK=${3}
+PACKAGES=${4}
+shift 4
+RINSE_ARGUMENTS="${@}"
+
+echo "Installing $RELEASE into ${VIRTUAL_DISK}..."
+
+MNT_DIR=`tempfile`
+rm ${MNT_DIR}
+mkdir ${MNT_DIR}
+DISK=
+
+echo "Looking for nbd device..."
+
+modprobe nbd max_part=16 || fail "failed to load nbd module into kernel"
+
+for i in /dev/nbd*
+do
+	if ${VSYSTEM}-nbd -c ${i} ${VIRTUAL_DISK}
+	then
+		DISK=${i}
+		break
+	fi
+done
+
+[ "$DISK" == "" ] && fail "no nbd device available"
+
+echo "Connected ${VIRTUAL_DISK} to $DISK"
+
+echo "Partitioning $DISK..."
+sfdisk ${DISK} -q -D -uM << EOF || fail "cannot partition ${VIRTUAL_DISK}"
+,200,83,*
+;
+EOF
+
+echo "Creating boot partition..."
+mkfs.ext3 -q ${DISK}p1 || fail "cannot create /boot ext4"
+
+echo "Creating root partition..."
+mkfs.ext3 -q ${DISK}p2 || fail "cannot create / ext4"
+
+echo "Mounting root partition..."
+mount ${DISK}p2 ${MNT_DIR} || fail "cannot mount /"
+
+parted -s ${VIRTUAL_DISK} set 1 boot on
+install-mbr ${VIRTUAL_DISK}
+
+echo "Installing $RELEASE..."
+rinse --directory ${MNT_DIR} $@
+
+echo "Configuring system..."
+
+sda1_uuid=`blkid -o value -s UUID ${DISK}p1`
+sda2_uuid=`blkid -o value -s UUID ${DISK}p2`
+
+cat <<EOF > ${MNT_DIR}/etc/fstab
+UUID=${sda1_uuid} /boot               ext4    sync 0       2
+UUID=${sda2_uuid} /                   ext4    errors=remount-ro 0       1
+EOF
+
+echo $HOSTNAME > ${MNT_DIR}/etc/hostname
+
+cat <<EOF > ${MNT_DIR}/etc/hosts
+127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
+127.0.1.1   $HOSTNAME
+::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
+EOF
+
+cat <<EOF > ${MNT_DIR}/etc/sysconfig/network
+NETWORKING=yes
+HOSTNAME=$HOSTNAME
+EOF
+
+cat <<EOF > ${MNT_DIR}/etc/sysconfig/network-scripts/ifcfg-eth0
+DEVICE=eth0
+BOOTPROTO=dhcp
+ONBOOT=yes
+TYPE=Ethernet
+USERCTL=yes
+PEERDNS=yes
+IPV6INIT=no
+PERSISTENT_DHCLIENT=yes
+EOF
+
+mount --bind /dev/ ${MNT_DIR}/dev || fail "cannot bind /dev"
+chroot ${MNT_DIR} mount -t ext4 ${DISK}p1 /boot || fail "cannot mount /boot"
+chroot ${MNT_DIR} mount -t proc none /proc || fail "cannot mount /proc"
+chroot ${MNT_DIR} mount -t sysfs none /sys || fail "cannot mount /sys"
+
+chroot ${MNT_DIR} sh -c "yum -q -y update"
+chroot ${MNT_DIR} sh -c "yum -q -y upgrade"
+
+chroot ${MNT_DIR} yum -q -y install ${PACKAGES} || fail "cannot install ${PACKAGES}"
+
+VMLINUZ=`(cd ${MNT_DIR}/boot/; echo vmlinuz-*)`
+INITRD=`(cd ${MNT_DIR}/boot/; echo initramfs-*)`
+echo -e "default linux\ntimeout 1\n\nlabel linux\nkernel /${VMLINUZ}\nappend initrd=/${INITRD} root=UUID=${sda2_uuid} ro quiet" > ${MNT_DIR}/boot/extlinux/extlinux.conf
+chroot ${MNT_DIR} extlinux --install /boot/extlinux
+
+chroot ${MNT_DIR} sh -c "echo root:${ROOT_PASSWORD} | chpasswd"
+
+chroot ${MNT_DIR} sh -c "yum -q -y clean all"
+chroot ${MNT_DIR} sh -c "find /var/cache -type f -delete -print"
+chroot ${MNT_DIR} sh -c "dd if=/dev/zero of=/EMPTY bs=1M || true"
+chroot ${MNT_DIR} sh -c "rm -f /EMPTY"
+chroot ${MNT_DIR} sh -c "sync;sync;sync"
+chroot ${MNT_DIR} sh -c "unset HISTFILE"
+
+echo "SUCCESS!"
+cleanup
+exit 0
